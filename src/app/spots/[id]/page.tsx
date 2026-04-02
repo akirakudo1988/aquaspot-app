@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Clock, Phone, ExternalLink, ChevronLeft, Droplets, Star, User, Calendar } from 'lucide-react'
+import { MapPin, Clock, Phone, ExternalLink, ChevronLeft, Droplets, Star, User, Calendar, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -112,6 +112,14 @@ export default async function SpotDetailPage({ params }: PageProps) {
             <span className="font-semibold">{avgRating.toFixed(1)}</span>
             <span className="text-muted-foreground">({spot.reviews.length}件)</span>
           </div>
+          {session?.user?.id === spot.registeredBy.id && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/spots/${spot.id}/edit`}>
+                <Pencil className="h-3.5 w-3.5 mr-1" />
+                編集
+              </Link>
+            </Button>
+          )}
           <FavoriteButton
             spotId={spot.id}
             initialFavorited={userFavorited}
