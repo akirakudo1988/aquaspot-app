@@ -1,6 +1,5 @@
 import 'server-only'
-import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
-import path from 'path'
+import { PrismaPg } from '@prisma/adapter-pg'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyPrismaClient = any
@@ -10,8 +9,7 @@ const globalForPrisma = globalThis as unknown as { prisma: AnyPrismaClient }
 function createPrisma(): AnyPrismaClient {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { PrismaClient } = require('../generated/prisma/client')
-  const dbPath = path.resolve(process.cwd(), 'dev.db')
-  const adapter = new PrismaBetterSqlite3({ url: dbPath })
+  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! })
   return new PrismaClient({ adapter })
 }
 
