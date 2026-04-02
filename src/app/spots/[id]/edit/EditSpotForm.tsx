@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, Loader2 } from 'lucide-react'
+import { ChevronLeft, Loader2, Upload, X } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,17 +22,19 @@ interface Spot {
   waterTypes: string
   operatingHours: string | null
   phone: string | null
-  instagram: string | null
+  website: string | null
   notes: string | null
   image: string | null
-  lat: number | null
-  lng: number | null
 }
 
 export function EditSpotForm({ spot }: { spot: Spot }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(spot.image)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
 
   const [form, setForm] = useState({
     name: spot.name,
@@ -40,23 +43,45 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
     city: spot.city,
     operatingHours: spot.operatingHours || '',
     phone: spot.phone || '',
-    instagram: spot.instagram || '',
+    website: spot.website || '',
     notes: spot.notes || '',
-    image: spot.image || '',
-    lat: spot.lat?.toString() || '',
-    lng: spot.lng?.toString() || '',
   })
-  const [waterTypes, setWaterTypes] = useState<string[]>(parseWaterTypes(spot.waterTypes))
+  const existing = parseWaterTypes(spot.waterTypes)
+  const [waterType, setWaterType] = useState(existing[0] || '')
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
   }
 
-  function toggleWaterType(type: string) {
-    setWaterTypes((prev) =>
-      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
-    )
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = (ev) => setImagePreview(ev.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  function removeImage() {
+    setImageFile(null)
+    setImagePreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function uploadImage(): Promise<string | null> {
+    if (!imageFile) return imagePreview // keep existing
+    setUploadingImage(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', imageFile)
+      const res = await fetch('/api/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'アップロード失敗')
+      return data.url
+    } finally {
+      setUploadingImage(false)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -67,17 +92,18 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
       setError('必須項目（名称・住所・都道府県・市区町村）を入力してください')
       return
     }
-    if (waterTypes.length === 0) {
-      setError('水の種類を1つ以上選択してください')
+    if (!waterType) {
+      setError('水の種類を選択してください')
       return
     }
 
     setLoading(true)
     try {
+      const imageUrl = await uploadImage()
       const res = await fetch(`/api/spots/${spot.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, waterTypes }),
+        body: JSON.stringify({ ...form, waterTypes: [waterType], image: imageUrl }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -110,13 +136,7 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">スポット名 <span className="text-destructive">*</span></Label>
-              <Input
-                id="name"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-              />
+              <Input id="name" name="name" value={form.name} onChange={handleChange} required />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -135,32 +155,20 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="city">市区町村 <span className="text-destructive">*</span></Label>
-                <Input
-                  id="city"
-                  name="city"
-                  value={form.city}
-                  onChange={handleChange}
-                  required
-                />
+                <Input id="city" name="city" value={form.city} onChange={handleChange} required />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="address">住所 <span className="text-destructive">*</span></Label>
-              <Input
-                id="address"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                required
-              />
+              <Input id="address" name="address" value={form.address} onChange={handleChange} required />
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">水の種類 <span className="text-destructive text-sm font-normal">（1つ以上選択）</span></CardTitle>
+            <CardTitle className="text-base">水の種類 <span className="text-destructive text-sm font-normal">（1つ選択）</span></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
@@ -168,9 +176,9 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
                 <button
                   key={type}
                   type="button"
-                  onClick={() => toggleWaterType(type)}
+                  onClick={() => setWaterType(type)}
                   className={`px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
-                    waterTypes.includes(type)
+                    waterType === type
                       ? 'bg-primary text-primary-foreground border-primary'
                       : 'border-input hover:bg-muted'
                   }`}
@@ -189,13 +197,7 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="operatingHours">営業時間</Label>
-              <Input
-                id="operatingHours"
-                name="operatingHours"
-                placeholder="例：10:00〜18:00 / 24時間"
-                value={form.operatingHours}
-                onChange={handleChange}
-              />
+              <Input id="operatingHours" name="operatingHours" placeholder="例：10:00〜18:00 / 24時間" value={form.operatingHours} onChange={handleChange} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -204,25 +206,36 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
                 <Input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="instagram">Instagram</Label>
-                <Input id="instagram" name="instagram" value={form.instagram} onChange={handleChange} />
+                <Label htmlFor="website">Webサイト</Label>
+                <Input id="website" name="website" type="url" placeholder="https://example.com" value={form.website} onChange={handleChange} />
               </div>
             </div>
 
+            {/* 画像アップロード */}
             <div className="space-y-2">
-              <Label htmlFor="image">画像URL</Label>
-              <Input id="image" name="image" type="url" value={form.image} onChange={handleChange} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="lat">緯度</Label>
-                <Input id="lat" name="lat" type="number" step="any" value={form.lat} onChange={handleChange} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lng">経度</Label>
-                <Input id="lng" name="lng" type="number" step="any" value={form.lng} onChange={handleChange} />
-              </div>
+              <Label>画像</Label>
+              {imagePreview ? (
+                <div className="relative w-full h-48 rounded-lg overflow-hidden border">
+                  <Image src={imagePreview} alt="プレビュー" fill className="object-cover" unoptimized />
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute top-2 right-2 bg-background/80 rounded-full p-1 hover:bg-background transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="border-2 border-dashed border-input rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">クリックして画像を選択</p>
+                  <p className="text-xs text-muted-foreground mt-1">JPG・PNG・WebP（5MBまで）</p>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
             </div>
 
             <div className="space-y-2">
@@ -236,9 +249,9 @@ export function EditSpotForm({ spot }: { spot: Spot }) {
           <p className="text-sm text-destructive bg-destructive/10 rounded-lg px-4 py-3">{error}</p>
         )}
 
-        <Button type="submit" size="lg" className="w-full" disabled={loading}>
-          {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          変更を保存する
+        <Button type="submit" size="lg" className="w-full" disabled={loading || uploadingImage}>
+          {(loading || uploadingImage) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          {uploadingImage ? '画像アップロード中...' : '変更を保存する'}
         </Button>
       </form>
     </div>

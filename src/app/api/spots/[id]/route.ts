@@ -48,10 +48,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const body = await req.json()
-  const { name, address, prefecture, city, waterTypes, operatingHours, phone, instagram, notes, image, lat, lng } = body
+  const { name, address, prefecture, city, waterTypes, operatingHours, phone, website, notes, image } = body
 
   if (!name || !address || !prefecture || !city || !waterTypes?.length) {
     return NextResponse.json({ error: '必須項目を入力してください' }, { status: 400 })
+  }
+
+  // Re-geocode if address changed
+  const current = await prisma.spot.findUnique({ where: { id }, select: { address: true, lat: true, lng: true } })
+  let coords: { lat: number; lng: number } | null = null
+  if (current && current.address !== address) {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY
+    if (apiKey) {
+      try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}&language=ja`
+        const res = await fetch(url)
+        const data = await res.json()
+        if (data.status === 'OK' && data.results[0]) {
+          coords = data.results[0].geometry.location
+        }
+      } catch {}
+    }
   }
 
   const updated = await prisma.spot.update({
@@ -64,11 +81,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       waterTypes: serializeWaterTypes(waterTypes),
       operatingHours: operatingHours || null,
       phone: phone || null,
-      instagram: instagram || null,
+      website: website || null,
       notes: notes || null,
       image: image || null,
-      lat: lat ? parseFloat(lat) : null,
-      lng: lng ? parseFloat(lng) : null,
+      ...(coords ? { lat: coords.lat, lng: coords.lng } : {}),
     },
   })
 

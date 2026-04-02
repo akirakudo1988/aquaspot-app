@@ -26,7 +26,7 @@ export function formatDate(date: Date | string): string {
   })
 }
 
-export const WATER_TYPES = ['水素水', 'シリカ水', 'バナジウム水'] as const
+export const WATER_TYPES = ['水素水', 'シリカ水', 'バナジウム水', '水素+シリカ', 'アドバンス'] as const
 export type WaterType = (typeof WATER_TYPES)[number]
 
 export const PREFECTURES = [

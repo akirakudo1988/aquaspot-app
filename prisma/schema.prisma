@@ -27,7 +27,7 @@ model Spot {
   waterTypes     String
   operatingHours String?
   phone          String?
-  instagram      String?
+  website        String?
   notes          String?
   image          String?
   lat            Float?

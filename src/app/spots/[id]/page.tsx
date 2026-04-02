@@ -188,16 +188,16 @@ export default async function SpotDetailPage({ params }: PageProps) {
                   </a>
                 </div>
               )}
-              {spot.instagram && (
+              {spot.website && (
                 <div className="flex items-center gap-2">
                   <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
                   <a
-                    href={spot.instagram.startsWith('http') ? spot.instagram : `https://instagram.com/${spot.instagram}`}
+                    href={spot.website}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline truncate"
                   >
-                    {spot.instagram.replace('https://www.instagram.com/', '@').replace('https://instagram.com/', '@')}
+                    {spot.website.replace(/^https?:\/\//, '')}
                   </a>
                 </div>
               )}

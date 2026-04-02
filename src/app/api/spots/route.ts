@@ -56,6 +56,21 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ spots: spotsWithAvg, total, page, limit })
 }
 
+async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY
+  if (!apiKey) return null
+  try {
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}&language=ja`
+    const res = await fetch(url)
+    const data = await res.json()
+    if (data.status === 'OK' && data.results[0]) {
+      const { lat, lng } = data.results[0].geometry.location
+      return { lat, lng }
+    }
+  } catch {}
+  return null
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session?.user?.id) {
@@ -63,11 +78,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { name, address, prefecture, city, waterTypes, operatingHours, phone, instagram, notes, image, lat, lng } = body
+  const { name, address, prefecture, city, waterTypes, operatingHours, phone, website, notes, image } = body
 
   if (!name || !address || !prefecture || !city || !waterTypes?.length) {
     return NextResponse.json({ error: '必須項目を入力してください' }, { status: 400 })
   }
+
+  const coords = await geocode(address)
 
   const spot = await prisma.spot.create({
     data: {
@@ -78,11 +95,11 @@ export async function POST(req: NextRequest) {
       waterTypes: serializeWaterTypes(waterTypes),
       operatingHours: operatingHours || null,
       phone: phone || null,
-      instagram: instagram || null,
+      website: website || null,
       notes: notes || null,
       image: image || null,
-      lat: lat ? parseFloat(lat) : null,
-      lng: lng ? parseFloat(lng) : null,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
       registeredById: session.user.id,
     },
   })
