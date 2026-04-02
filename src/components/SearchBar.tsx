@@ -20,8 +20,8 @@ export function SearchBar({ initialSearch = '', initialPrefecture = '', initialW
   const searchParams = useSearchParams()
   const [, startTransition] = useTransition()
   const [search, setSearch] = useState(initialSearch)
-  const [prefecture, setPrefecture] = useState(initialPrefecture)
-  const [waterType, setWaterType] = useState(initialWaterType)
+  const [prefecture, setPrefecture] = useState(initialPrefecture || 'all')
+  const [waterType, setWaterType] = useState(initialWaterType || 'all')
 
   function updateParams(updates: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -75,24 +75,36 @@ export function SearchBar({ initialSearch = '', initialPrefecture = '', initialW
         )}
       </div>
       <div className="flex gap-2 flex-wrap">
-        <Select value={prefecture} onValueChange={(v) => { setPrefecture(v); updateParams({ search, prefecture: v, waterType }) }}>
+        <Select
+          value={prefecture}
+          onValueChange={(v) => {
+            setPrefecture(v)
+            updateParams({ search, prefecture: v === 'all' ? '' : v, waterType: waterType === 'all' ? '' : waterType })
+          }}
+        >
           <SelectTrigger className="w-40">
             <SelectValue placeholder="都道府県" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">すべて</SelectItem>
+            <SelectItem value="all">すべて</SelectItem>
             {PREFECTURES.map((p) => (
               <SelectItem key={p} value={p}>{p}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        <Select value={waterType} onValueChange={(v) => { setWaterType(v); updateParams({ search, prefecture, waterType: v }) }}>
+        <Select
+          value={waterType}
+          onValueChange={(v) => {
+            setWaterType(v)
+            updateParams({ search, prefecture: prefecture === 'all' ? '' : prefecture, waterType: v === 'all' ? '' : v })
+          }}
+        >
           <SelectTrigger className="w-40">
             <SelectValue placeholder="水の種類" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">すべて</SelectItem>
+            <SelectItem value="all">すべて</SelectItem>
             {WATER_TYPES.map((t) => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
