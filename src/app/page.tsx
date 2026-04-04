@@ -28,11 +28,24 @@ async function getLatestSpots() {
 }
 
 async function getStats() {
-  const [spotCount, reviewCount] = await Promise.all([
+  const [spotCount, reviewCount, spots] = await Promise.all([
     prisma.spot.count(),
     prisma.review.count(),
+    prisma.spot.findMany({ select: { prefecture: true, waterTypes: true } }),
   ])
-  return { spotCount, reviewCount }
+
+  const prefectureCount = new Set(spots.map((s: { prefecture: string }) => s.prefecture)).size
+
+  const waterTypeSet = new Set<string>()
+  for (const spot of spots as { waterTypes: string }[]) {
+    try {
+      const types = JSON.parse(spot.waterTypes)
+      if (Array.isArray(types)) types.forEach((t: string) => waterTypeSet.add(t))
+    } catch { /* ignore */ }
+  }
+  const waterTypeCount = waterTypeSet.size
+
+  return { spotCount, reviewCount, prefectureCount, waterTypeCount }
 }
 
 export default async function HomePage() {
@@ -91,11 +104,11 @@ export default async function HomePage() {
               <p className="text-sm text-muted-foreground mt-1">口コミ数</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-primary">47</p>
+              <p className="text-3xl font-bold text-primary">{stats.prefectureCount}</p>
               <p className="text-sm text-muted-foreground mt-1">対応都道府県</p>
             </div>
             <div>
-              <p className="text-3xl font-bold text-primary">3</p>
+              <p className="text-3xl font-bold text-primary">{stats.waterTypeCount}</p>
               <p className="text-sm text-muted-foreground mt-1">水の種類</p>
             </div>
           </div>
