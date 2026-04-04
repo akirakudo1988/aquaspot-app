@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!spot) {
     return NextResponse.json({ error: 'スポットが見つかりません' }, { status: 404 })
   }
-  if (spot.registeredById !== session.user.id) {
+  if (!session.user.isAdmin && spot.registeredById !== session.user.id) {
     return NextResponse.json({ error: '編集権限がありません' }, { status: 403 })
   }
 
@@ -89,4 +89,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   })
 
   return NextResponse.json(updated)
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const session = await auth()
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'ログインが必要です' }, { status: 401 })
+  }
+
+  const spot = await prisma.spot.findUnique({ where: { id }, select: { registeredById: true } })
+  if (!spot) {
+    return NextResponse.json({ error: 'スポットが見つかりません' }, { status: 404 })
+  }
+  if (!session.user.isAdmin && spot.registeredById !== session.user.id) {
+    return NextResponse.json({ error: '削除権限がありません' }, { status: 403 })
+  }
+
+  await prisma.spot.delete({ where: { id } })
+  return NextResponse.json({ success: true })
 }

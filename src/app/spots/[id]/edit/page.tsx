@@ -18,7 +18,7 @@ export default async function EditSpotPage({ params }: PageProps) {
   const spot = await prisma.spot.findUnique({ where: { id } })
   if (!spot) notFound()
 
-  if (spot.registeredById !== session.user.id) {
+  if (!session.user.isAdmin && spot.registeredById !== session.user.id) {
     redirect(`/spots/${id}`)
   }
 

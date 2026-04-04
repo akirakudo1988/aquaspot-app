@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { MapPin, Clock, Phone, ExternalLink, ChevronLeft, Droplets, Star, User, Calendar, Pencil } from 'lucide-react'
+import { MapPin, Clock, Phone, ExternalLink, ChevronLeft, Droplets, Star, User, Calendar, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -112,13 +112,16 @@ export default async function SpotDetailPage({ params }: PageProps) {
             <span className="font-semibold">{avgRating.toFixed(1)}</span>
             <span className="text-muted-foreground">({spot.reviews.length}件)</span>
           </div>
-          {session?.user?.id === spot.registeredBy.id && (
+          {(session?.user?.isAdmin || session?.user?.id === spot.registeredBy.id) && (
             <Button variant="outline" size="sm" asChild>
               <Link href={`/spots/${spot.id}/edit`}>
                 <Pencil className="h-3.5 w-3.5 mr-1" />
                 編集
               </Link>
             </Button>
+          )}
+          {(session?.user?.isAdmin || session?.user?.id === spot.registeredBy.id) && (
+            <DeleteSpotButton spotId={spot.id} />
           )}
           <FavoriteButton
             spotId={spot.id}
@@ -230,5 +233,38 @@ export default async function SpotDetailPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+  )
+}
+
+function DeleteSpotButton({ spotId }: { spotId: string }) {
+  return (
+    <form
+      action={async () => {
+        'use server'
+        const { auth } = await import('@/lib/auth')
+        const { prisma } = await import('@/lib/db')
+        const { redirect } = await import('next/navigation')
+        const session = await auth()
+        if (!session?.user?.id) return
+        const spot = await prisma.spot.findUnique({ where: { id: spotId }, select: { registeredById: true } })
+        if (!spot) return
+        if (!session.user.isAdmin && spot.registeredById !== session.user.id) return
+        await prisma.spot.delete({ where: { id: spotId } })
+        redirect('/spots')
+      }}
+    >
+      <Button
+        type="submit"
+        variant="outline"
+        size="sm"
+        className="text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+        onClick={(e) => {
+          if (!confirm('このスポットを削除しますか？')) e.preventDefault()
+        }}
+      >
+        <Trash2 className="h-3.5 w-3.5 mr-1" />
+        削除
+      </Button>
+    </form>
   )
 }

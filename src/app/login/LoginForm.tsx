@@ -16,6 +16,7 @@ export function LoginForm() {
   const callbackUrl = searchParams.get('callbackUrl') || '/'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [adminCode, setAdminCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -27,6 +28,7 @@ export function LoginForm() {
       const result = await signIn('credentials', {
         email,
         password,
+        adminCode,
         redirect: false,
       })
       if (result?.error) {
@@ -78,6 +80,17 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adminCode">管理者コード（任意）</Label>
+              <Input
+                id="adminCode"
+                type="password"
+                placeholder="管理者のみ入力"
+                value={adminCode}
+                onChange={(e) => setAdminCode(e.target.value)}
+                autoComplete="off"
               />
             </div>
             {error && (
