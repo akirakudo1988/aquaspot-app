@@ -10,6 +10,7 @@ import { ReviewList } from '@/components/ReviewList'
 import { ReviewForm } from '@/components/ReviewForm'
 import { FavoriteButton } from '@/components/FavoriteButton'
 import { DeleteSpotButton } from '@/components/DeleteSpotButton'
+import { SpotMap } from '@/components/SpotMap'
 import { prisma } from '@/lib/db'
 import { auth } from '@/lib/auth'
 import { parseWaterTypes, formatDate } from '@/lib/utils'
@@ -218,6 +219,15 @@ export default async function SpotDetailPage({ params }: PageProps) {
               </CardContent>
             </Card>
           )}
+
+          <SpotMap
+            name={spot.name}
+            address={spot.address}
+            prefecture={spot.prefecture}
+            city={spot.city}
+            lat={spot.lat}
+            lng={spot.lng}
+          />
 
           <Card>
             <CardContent className="pt-4 space-y-2 text-xs text-muted-foreground">

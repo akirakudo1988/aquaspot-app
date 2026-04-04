@@ -28,26 +28,52 @@ export function MapView({ spots }: MapViewProps) {
   useEffect(() => {
     if (!apiKey || !mapRef.current) return
 
-    const spotsWithCoords = spots.filter((s) => s.lat && s.lng)
-    const center =
-      spotsWithCoords.length > 0
-        ? { lat: spotsWithCoords[0].lat!, lng: spotsWithCoords[0].lng! }
-        : { lat: 35.6812, lng: 139.7671 } // Tokyo default
-
-    // Use new functional API
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker&v=weekly`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly`
     script.async = true
     script.defer = true
-    script.onload = () => {
+    script.onload = async () => {
       if (!mapRef.current) return
-      const map = new window.google.maps.Map(mapRef.current, {
+
+      const geocoder = new window.google.maps.Geocoder()
+
+      // Geocode spots that don't have coordinates
+      const spotsWithCoords = await Promise.all(
+        spots.map(async (spot) => {
+          if (spot.lat && spot.lng) return { ...spot, lat: spot.lat, lng: spot.lng }
+          const fullAddress = `${spot.prefecture}${spot.city}${spot.address}`
+          try {
+            const result = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+              geocoder.geocode({ address: fullAddress, region: 'JP' }, (results, status) => {
+                if (status === 'OK' && results && results[0]) {
+                  const loc = results[0].geometry.location
+                  resolve({ lat: loc.lat(), lng: loc.lng() })
+                } else {
+                  resolve(null)
+                }
+              })
+            })
+            if (result) return { ...spot, lat: result.lat, lng: result.lng }
+          } catch {
+            // ignore
+          }
+          return null
+        })
+      )
+
+      const validSpots = spotsWithCoords.filter((s): s is NonNullable<typeof s> => s !== null && s.lat !== null && s.lng !== null)
+
+      const center =
+        validSpots.length > 0
+          ? { lat: validSpots[0].lat!, lng: validSpots[0].lng! }
+          : { lat: 35.6812, lng: 139.7671 } // Tokyo default
+
+      const map = new window.google.maps.Map(mapRef.current!, {
         center,
-        zoom: spotsWithCoords.length > 0 ? 12 : 5,
-        mapId: 'aquaspot-map',
+        zoom: validSpots.length > 0 ? 12 : 5,
       })
 
-      spotsWithCoords.forEach((spot) => {
+      validSpots.forEach((spot) => {
         const marker = new window.google.maps.Marker({
           map,
           position: { lat: spot.lat!, lng: spot.lng! },
@@ -74,7 +100,7 @@ export function MapView({ spots }: MapViewProps) {
     document.head.appendChild(script)
 
     return () => {
-      document.head.removeChild(script)
+      if (document.head.contains(script)) document.head.removeChild(script)
     }
   }, [apiKey, spots])
 
@@ -94,8 +120,6 @@ export function MapView({ spots }: MapViewProps) {
 }
 
 function FallbackMap({ spots }: MapViewProps) {
-  const spotsWithCoords = spots.filter((s) => s.lat && s.lng)
-
   return (
     <div className="h-[500px] bg-muted/30 rounded-xl border flex flex-col items-center justify-center gap-4 p-6">
       <MapPin className="h-10 w-10 text-muted-foreground/40" />
@@ -103,9 +127,9 @@ function FallbackMap({ spots }: MapViewProps) {
         <p className="font-medium text-muted-foreground">地図を表示するには Google Maps API キーが必要です</p>
         <p className="text-sm text-muted-foreground/70 mt-1">.env.local に NEXT_PUBLIC_GOOGLE_MAPS_API_KEY を設定してください</p>
       </div>
-      {spotsWithCoords.length > 0 && (
+      {spots.length > 0 && (
         <div className="w-full max-w-sm mt-2 space-y-2">
-          {spotsWithCoords.slice(0, 5).map((spot) => (
+          {spots.slice(0, 5).map((spot) => (
             <a
               key={spot.id}
               href={`/spots/${spot.id}`}
